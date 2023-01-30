@@ -28,13 +28,13 @@ class StockScreenerApp:
         self.results = []
         self.create_widgets()
         self.setup_conditions()
-    
+
     def create_widgets(self):
         main_frame = ttk.Frame(self.root, padding=10)
         main_frame.grid(row=0, column=0, sticky=tk.NSEW)
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        
+
         control_frame = ttk.LabelFrame(main_frame, text="Controls", padding=10)
         control_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=5, pady=5)
         ttk.Label(control_frame, text="Screening Date (YYYY-MM-DD):").grid(row=0, column=0, sticky=tk.W)
@@ -49,7 +49,7 @@ class StockScreenerApp:
             .pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="Reset", command=self.reset)\
             .pack(side=tk.LEFT, padx=5)
-        
+
         cond_frame = ttk.LabelFrame(main_frame, text="Indicators", padding=10)
         cond_frame.grid(row=0, column=1, sticky=tk.NSEW, padx=5, pady=5)
         cond_canvas = tk.Canvas(cond_frame, borderwidth=0)
@@ -60,7 +60,7 @@ class StockScreenerApp:
         cond_canvas.configure(yscrollcommand=cond_scrollbar.set)
         cond_canvas.pack(side="left", fill="both", expand=True)
         cond_scrollbar.pack(side="right", fill="y")
-        
+
         self.ticker_frame = ttk.LabelFrame(main_frame, text="Ticker Selection", padding=10)
         self.ticker_frame.grid(row=0, column=2, sticky=tk.NSEW, padx=5, pady=5)
         self.ticker_inner_frame = ttk.Frame(self.ticker_frame)
@@ -71,7 +71,7 @@ class StockScreenerApp:
             .pack(side=tk.LEFT, padx=2)
         ttk.Button(ticker_btn_frame, text="Unselect All", command=self.unselect_all_tickers)\
             .pack(side=tk.LEFT, padx=2)
-        
+
         results_frame = ttk.LabelFrame(main_frame, text="Results", padding=10)
         results_frame.grid(row=1, column=0, columnspan=3, sticky=tk.NSEW, padx=5, pady=5)
         self.tree = ttk.Treeview(results_frame, columns=("Num", "Ticker", "Open"), show="headings")
@@ -79,12 +79,12 @@ class StockScreenerApp:
         self.tree.heading("Ticker", text="Ticker")
         self.tree.heading("Open", text="Open 16h Day-1")
         self.tree.pack(fill=tk.BOTH, expand=True)
-        
+
         main_frame.columnconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
         main_frame.columnconfigure(2, weight=1)
         main_frame.rowconfigure(1, weight=1)
-    
+
     def setup_conditions(self):
         # List all 47 conditions.
         cond_defs = [
@@ -127,7 +127,7 @@ class StockScreenerApp:
         default_date = (now + BDay(1)).date() if now.time() > datetime.time(20, 0) else now.date()
         logger.info(f"Default screening date set to: {default_date}")
         return default_date
-    
+
     def upload_file(self):
         path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
         if path:
@@ -146,7 +146,7 @@ class StockScreenerApp:
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load file: {e}")
                 logger.error(f"Error loading file: {e}")
-    
+
     def populate_ticker_selection(self):
         for widget in self.ticker_inner_frame.winfo_children():
             widget.destroy()
@@ -164,7 +164,7 @@ class StockScreenerApp:
     def unselect_all_tickers(self):
         for var in self.ticker_vars.values():
             var.set(False)
-    
+
     def fetch_data(self, ticker, day_minus1, day):
         try:
             contract = Stock(ticker, 'SMART', 'USD')
@@ -176,7 +176,7 @@ class StockScreenerApp:
             localized_dt = eastern.localize(target_datetime).astimezone(pytz.utc)
             end_time_str = localized_dt.strftime('%Y%m%d %H:%M:%S')
             logger.info(f"Fetching data for {ticker} with end time {end_time_str} (US/Eastern, extended hours)")
-            
+
             bars = ib.reqHistoricalData(
                 contract,
                 endDateTime=end_time_str,
@@ -186,7 +186,7 @@ class StockScreenerApp:
                 useRTH=False,   # Extended hours mode (4:00-20:00)
                 formatDate=1
             )
-            
+
             if not bars:
                 logger.warning(f"No data returned for {ticker}")
                 return pd.DataFrame()
@@ -230,7 +230,7 @@ class StockScreenerApp:
                     row = rows.iloc[-1]
                     results[cid] = (row['Close'] >= row['Open'])
                     logger.info(f"[Condition {cid}] Hour {hour}: Open={row['Open']}, Close={row['Close']} => {results[cid]}")
-            
+
             # For conditions 15-47, we assume custom logic is defined (this example uses placeholders).
             # You can replace the following with your actual indicator formulas.
             for cid in range(15, 48):
@@ -240,19 +240,19 @@ class StockScreenerApp:
                     continue
                 results[cid] = True  # Dummy logic; update as needed.
                 logger.info(f"[Condition {cid}] set to {results[cid]} (placeholder)")
-            
+
             return all(results.get(cid, False) for cid, var in self.conditions.items() if var.get())
         except Exception as e:
             logger.error("Error evaluating conditions: " + str(e))
             return False
-    
+
     def save_results(self):
         with open('screener_results.txt', 'w') as f:
             f.write("Num\tTicker\tOpen16hDay-1\n")
             for num, ticker, open_val in sorted(self.results, key=lambda x: x[0]):
                 f.write(f"{num}\t{ticker}\t{open_val:.2f}\n")
         logger.info("Results saved to screener_results.txt")
-    
+
     def run_screener(self):
         self.tree.delete(*self.tree.get_children())
         try:
@@ -305,7 +305,7 @@ class StockScreenerApp:
         self.save_results()
         messagebox.showinfo("Success", f"Found {len(self.results)} matches.\nResults saved to screener_results.txt")
         logger.info(f"Screener finished with {len(self.results)} matches.")
-    
+
     def reset(self):
         self.date_entry.delete(0, tk.END)
         self.date_entry.insert(0, self.get_default_date().strftime("%Y-%m-%d"))
