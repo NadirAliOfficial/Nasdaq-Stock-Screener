@@ -35,6 +35,7 @@ class StockScreenerApp:
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         
+        # Controls Frame
         control_frame = ttk.LabelFrame(main_frame, text="Controls", padding=10)
         control_frame.grid(row=0, column=0, sticky=tk.NSEW, padx=5, pady=5)
         ttk.Label(control_frame, text="Screening Date (YYYY-MM-DD):").grid(row=0, column=0, sticky=tk.W)
@@ -47,6 +48,7 @@ class StockScreenerApp:
         ttk.Button(btn_frame, text="Run Screener", command=self.run_screener).pack(side=tk.LEFT, padx=5)
         ttk.Button(btn_frame, text="Reset", command=self.reset).pack(side=tk.LEFT, padx=5)
         
+        # Conditions Frame
         cond_frame = ttk.LabelFrame(main_frame, text="Indicators", padding=10)
         cond_frame.grid(row=0, column=1, sticky=tk.NSEW, padx=5, pady=5)
         cond_canvas = tk.Canvas(cond_frame, borderwidth=0)
@@ -58,6 +60,7 @@ class StockScreenerApp:
         cond_canvas.pack(side="left", fill="both", expand=True)
         cond_scrollbar.pack(side="right", fill="y")
         
+        # Ticker Selection Frame
         self.ticker_frame = ttk.LabelFrame(main_frame, text="Ticker Selection", padding=10)
         self.ticker_frame.grid(row=0, column=2, sticky=tk.NSEW, padx=5, pady=5)
         self.ticker_inner_frame = ttk.Frame(self.ticker_frame)
@@ -67,6 +70,7 @@ class StockScreenerApp:
         ttk.Button(ticker_btn_frame, text="Select All", command=self.select_all_tickers).pack(side=tk.LEFT, padx=2)
         ttk.Button(ticker_btn_frame, text="Unselect All", command=self.unselect_all_tickers).pack(side=tk.LEFT, padx=2)
         
+        # Results Frame
         results_frame = ttk.LabelFrame(main_frame, text="Results", padding=10)
         results_frame.grid(row=1, column=0, columnspan=3, sticky=tk.NSEW, padx=5, pady=5)
         self.tree = ttk.Treeview(results_frame, columns=("Num", "Ticker", "Open"), show="headings")
@@ -103,8 +107,8 @@ class StockScreenerApp:
             (35, "Close 19h > Low 16h"), (36, "Low 19h > Low 16h"),
             (37, "Low 19h > Low 17h"), (38, "Low 19h > Low 18h"),
             (39, "Open 16h = Low 16h"), (40, "Open 16h = High 16h"),
-            (41, "Close < Open and High in [4h;20h]"),
-            (42, "Close ≥ Open and High in [4h;20h]"),
+            (41, "Bar with highest High (04h-20h): Close < Open"),   # Modified logic for 41
+            (42, "Bar with highest High (04h-20h): Close ≥ Open"),   # Modified logic for 42
             (43, "High [4h;20h] > 1.5*Open16h DAY-1"),
             (44, "High [4h;20h] > 1.7*Open16h DAY-1"),
             (45, "High [4h;20h] > 2*Open16h DAY-1"),
@@ -127,7 +131,7 @@ class StockScreenerApp:
         path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
         if path:
             try:
-                with open(path, 'r') as f:
+                with open(path, "r") as f:
                     content = f.read().strip()
                 tickers = [x.strip() for x in content.split(",") if x.strip()]
                 tickers = [ticker.split(":")[-1] for ticker in tickers]
@@ -165,19 +169,19 @@ class StockScreenerApp:
         Fetch extended hours data over 7 days to cover weekends/holidays.
         """
         try:
-            contract = Stock(ticker, 'SMART', 'USD')
+            contract = Stock(ticker, "SMART", "USD")
             ib.qualifyContracts(contract)
             target_datetime = datetime.datetime.combine(day + datetime.timedelta(days=1), datetime.time(11, 0))
             localized_dt = eastern.localize(target_datetime).astimezone(pytz.utc)
-            end_time_str = localized_dt.strftime('%Y%m%d %H:%M:%S')
+            end_time_str = localized_dt.strftime("%Y%m%d %H:%M:%S")
             logger.info(f"Fetching data for {ticker} with end time {end_time_str} (US/Eastern, extended hours)")
             
             bars = ib.reqHistoricalData(
                 contract,
                 endDateTime=end_time_str,
-                durationStr='7 D',
-                barSizeSetting='1 hour',
-                whatToShow='TRADES',
+                durationStr="7 D",
+                barSizeSetting="1 hour",
+                whatToShow="TRADES",
                 useRTH=False,
                 formatDate=1
             )
@@ -186,12 +190,12 @@ class StockScreenerApp:
                 logger.warning(f"No data returned for {ticker}")
                 return pd.DataFrame()
             df = util.df(bars)
-            df['date'] = pd.to_datetime(df['date'])
-            df.set_index('date', inplace=True)
+            df["date"] = pd.to_datetime(df["date"])
+            df.set_index("date", inplace=True)
             if df.index.tz is None:
-                df.index = df.index.tz_localize('UTC').tz_convert('US/Eastern')
+                df.index = df.index.tz_localize("UTC").tz_convert("US/Eastern")
             else:
-                df.index = df.index.tz_convert('US/Eastern')
+                df.index = df.index.tz_convert("US/Eastern")
             df.rename(columns={"open": "Open", "high": "High", "low": "Low", "close": "Close"}, inplace=True)
             logger.info(f"Data for {ticker} covers timestamps: {df.index.tolist()}")
             df.to_csv(f"{ticker}_raw_data.csv")
@@ -212,7 +216,7 @@ class StockScreenerApp:
             if not prev_data.empty:
                 target_bar = prev_data.between_time("16:00", "16:00")
                 if not target_bar.empty:
-                    open_16h = target_bar.iloc[0]['Open']
+                    open_16h = target_bar.iloc[0]["Open"]
                     logger.info(f"Found 16:00 bar for {day_cursor}, open={open_16h}")
                     return open_16h
             day_cursor -= datetime.timedelta(days=1)
@@ -237,7 +241,7 @@ class StockScreenerApp:
                     results[cid] = False
                 else:
                     row = rows.iloc[-1]
-                    results[cid] = (row['Close'] >= row['Open'])
+                    results[cid] = (row["Close"] >= row["Open"])
                     logger.info(f"[Condition {cid}] Hour {hour}: Open={row['Open']}, Close={row['Close']} => {results[cid]}")
             # Conditions 15-19: For hours 15 to 19, check High != Low.
             for cid, hour in zip(range(15, 20), range(15, 20)):
@@ -249,22 +253,22 @@ class StockScreenerApp:
                     results[cid] = False
                 else:
                     row = rows.iloc[-1]
-                    results[cid] = (row['High'] != row['Low'])
+                    results[cid] = (row["High"] != row["Low"])
                     logger.info(f"[Condition {cid}] Hour {hour}: High={row['High']}, Low={row['Low']} => {results[cid]}")
             # Conditions 20-26: Using 18:00 bar.
             row18 = data.between_time("18:00", "18:59")
             if row18.empty:
                 logger.info("No bar found for 18:00 => Conditions 20-26 = False")
-                for cid in [20,21,23,24,25,26]:
+                for cid in [20, 21, 23, 24, 25, 26]:
                     results[cid] = False
             else:
                 r18 = row18.iloc[-1]
-                results[20] = (r18['Open'] == r18['Low'])
-                results[21] = (r18['Close'] != r18['High'])
-                results[23] = (r18['Close'] < r18['Open'])
-                results[24] = (r18['Open'] != r18['High'])
-                results[25] = (r18['Close'] == r18['Low'])
-                results[26] = (r18['High'] == r18['Low'])
+                results[20] = (r18["Open"] == r18["Low"])
+                results[21] = (r18["Close"] != r18["High"])
+                results[23] = (r18["Close"] < r18["Open"])
+                results[24] = (r18["Open"] != r18["High"])
+                results[25] = (r18["Close"] == r18["Low"])
+                results[26] = (r18["High"] == r18["Low"])
                 logger.info(f"[18:00] r18: {r18.to_dict()}, Conditions 20-26: {{20: {results[20]}, 21: {results[21]}, 23: {results[23]}, 24: {results[24]}, 25: {results[25]}, 26: {results[26]}}}")
             # Condition 22: High from 04:00-20:00 equals High from 10:00-15:00.
             high1 = data.between_time("04:00", "20:00")["High"].max()
@@ -314,9 +318,7 @@ class StockScreenerApp:
                 r19 = row19.iloc[-1]
                 results[35] = (r19["Close"] > row16.iloc[-1]["Low"])
                 results[36] = (r19["Low"] > row16.iloc[-1]["Low"])
-                # For condition 37, if 17:00 data is available use that; otherwise use r19's low.
                 results[37] = (r19["Low"] > (row17.iloc[-1]["Low"] if not row17.empty else r19["Low"]))
-                # For condition 38, similarly compare to 18:00.
                 results[38] = (r19["Low"] > (r18["Low"] if not row18.empty else r19["Low"]))
                 logger.info(f"[19:00] r19: {r19.to_dict()}, Conditions 35-38: {{35: {results[35]}, 36: {results[36]}, 37: {results[37]}, 38: {results[38]}}}")
             # Conditions 39-40: For 16:00 bar.
@@ -327,14 +329,16 @@ class StockScreenerApp:
                 logger.info(f"[16:00] Conditions 39-40: {{39: {results[39]}, 40: {results[40]}}}")
             else:
                 results[39] = results[40] = False
-            # Conditions 41-42: For 18:00 bar.
-            if not row18.empty:
-                r18 = row18.iloc[-1]
-                results[41] = (r18["Close"] < r18["Open"])
-                results[42] = (r18["Close"] >= r18["Open"])
-                logger.info(f"[18:00] Conditions 41-42: {{41: {results[41]}, 42: {results[42]}}}")
-            else:
+            # Conditions 41-42: Use the bar with the highest High between 04:00 and 20:00.
+            row_range = data.between_time("04:00", "20:00")
+            if row_range.empty:
                 results[41] = results[42] = False
+            else:
+                max_high = row_range["High"].max()
+                highest_bar = row_range[row_range["High"] == max_high].iloc[0]
+                results[41] = (highest_bar["Close"] < highest_bar["Open"])
+                results[42] = (highest_bar["Close"] >= highest_bar["Open"])
+                logger.info(f"[Highest Bar] {highest_bar.to_dict()}, Condition 41: {results[41]}, Condition 42: {results[42]}")
             # Conditions 43-46: Compare max high from 04:00-20:00 (high1) with multiples of Open16hDay-1.
             results[43] = (high1 > 1.5 * open_16h_day_minus1) if high1 is not None else False
             results[44] = (high1 > 1.7 * open_16h_day_minus1) if high1 is not None else False
@@ -345,7 +349,6 @@ class StockScreenerApp:
             results[47] = (low_range < 0.5 * open_16h_day_minus1) if low_range is not None else False
 
             logger.info(f"Evaluated conditions: {results}")
-            # Only return True if all checked conditions are True.
             return all(results.get(cid, False) for cid, var in self.conditions.items() if var.get())
         except Exception as e:
             logger.error("Error evaluating conditions: " + str(e))
@@ -417,5 +420,10 @@ class StockScreenerApp:
 
 if __name__ == "__main__":
     root = tk.Tk()
+    # For Windows, use iconbitmap (requires a .ico file)
+    try:
+        root.iconbitmap("money_analyze_icon_143358.ico")
+    except Exception as e:
+        print("Error setting icon with iconbitmap:", e)
     app = StockScreenerApp(root)
     root.mainloop()
