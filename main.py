@@ -4,7 +4,7 @@ import datetime
 import pytz
 import logging
 import pandas as pd
-from pandas.tseries.offsets import BDay 
+from pandas.tseries.offsets import BDay
 from ib_insync import IB, Stock, util
 
 logging.basicConfig(level=logging.DEBUG,
@@ -28,24 +28,24 @@ class StockScreenerApp:
         self.results = []  # Will hold tuples: (serial, ticker_index, ticker, open_16h)
         self.create_widgets()
         self.setup_conditions()
-    
+
     def create_widgets(self):
         # Define a small font style for Indicators
         style = ttk.Style(self.root)
         style.configure("SmallIndicator.TCheckbutton", font=("Arial", 12))
-        
+
         # Main container
         main_frame = ttk.Frame(self.root, padding=5)
         main_frame.grid(row=0, column=0, sticky=tk.NSEW)
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
-        
+
         #
         # Controls Frame (row=0, col=0)
         #
         control_frame = ttk.LabelFrame(main_frame, text="Controls", padding=5)
         control_frame.grid(row=0, column=0, sticky=tk.NW, padx=5, pady=5)
-        
+
         ttk.Label(control_frame, text="Screening Date (YYYY-MM-DD):").grid(row=0, column=0, sticky=tk.W)
         self.date_entry = ttk.Entry(control_frame, width=12)
         self.date_entry.grid(row=0, column=1, sticky=tk.W, padx=5)
@@ -53,7 +53,7 @@ class StockScreenerApp:
 
         ttk.Button(control_frame, text="Upload Ticker List", command=self.upload_file)\
             .grid(row=1, column=0, columnspan=2, pady=5)
-        
+
         btn_frame = ttk.Frame(control_frame)
         btn_frame.grid(row=2, column=0, columnspan=2, pady=5)
         ttk.Button(btn_frame, text="Run Screener", command=self.run_screener)\
@@ -66,7 +66,7 @@ class StockScreenerApp:
         #
         results_frame = ttk.LabelFrame(main_frame, text="Results", padding=5)
         results_frame.grid(row=1, column=0, sticky=tk.NSEW, padx=5, pady=5)
-        
+
         # Create a Treeview with one composite column for results.
         self.tree = ttk.Treeview(results_frame, columns=("result",), show="headings")
         self.tree.heading("result", text="Results")
@@ -79,7 +79,7 @@ class StockScreenerApp:
         indicators_frame.grid(row=0, column=1, rowspan=2, sticky=tk.NSEW, padx=5, pady=5)
         self.cond_scrollable = ttk.Frame(indicators_frame)
         self.cond_scrollable.pack(fill=tk.BOTH, expand=True)
-        
+
         #
         # Ticker Selection Frame (row=0, col=2, rowspan=2) => also spans rows 0 & 1 on the right
         #
@@ -87,14 +87,14 @@ class StockScreenerApp:
         self.ticker_frame.grid(row=0, column=2, rowspan=2, sticky=tk.NSEW, padx=5, pady=5)
         self.ticker_inner_frame = ttk.Frame(self.ticker_frame)
         self.ticker_inner_frame.pack(fill=tk.BOTH, expand=True)
-        
+
         ticker_btn_frame = ttk.Frame(self.ticker_frame)
         ticker_btn_frame.pack(pady=5)
         ttk.Button(ticker_btn_frame, text="Select All", command=self.select_all_tickers)\
             .pack(side=tk.LEFT, padx=2)
         ttk.Button(ticker_btn_frame, text="Unselect All", command=self.unselect_all_tickers)\
             .pack(side=tk.LEFT, padx=2)
-        
+
         #
         # Configure row/column weights
         #
@@ -103,7 +103,7 @@ class StockScreenerApp:
         main_frame.columnconfigure(0, weight=0)  # Left column (Controls + Results) is fixed
         main_frame.columnconfigure(1, weight=1)
         main_frame.columnconfigure(2, weight=1)
-    
+
     def setup_conditions(self):
         # List all 47 conditions.
         cond_defs = [
@@ -162,7 +162,7 @@ class StockScreenerApp:
         default_date = (now + BDay(1)).date() if now.time() > datetime.time(20, 0) else now.date()
         logger.info(f"Default screening date set to: {default_date}")
         return default_date
-    
+
     def upload_file(self):
         path = filedialog.askopenfilename(filetypes=[("Text files", "*.txt")])
         if path:
@@ -181,7 +181,7 @@ class StockScreenerApp:
             except Exception as e:
                 messagebox.showerror("Error", f"Failed to load file: {e}")
                 logger.error(f"Error loading file: {e}")
-    
+
     def populate_ticker_selection(self):
         for widget in self.ticker_inner_frame.winfo_children():
             widget.destroy()
@@ -205,7 +205,7 @@ class StockScreenerApp:
     def unselect_all_tickers(self):
         for var in self.ticker_vars.values():
             var.set(False)
-    
+
     def fetch_data(self, ticker, day_minus1, day):
         """
         Fetch extended hours data over 7 days to cover weekends/holidays.
@@ -217,7 +217,7 @@ class StockScreenerApp:
             localized_dt = eastern.localize(target_datetime).astimezone(pytz.utc)
             end_time_str = localized_dt.strftime("%Y%m%d %H:%M:%S")
             logger.info(f"Fetching data for {ticker} with end time {end_time_str} (US/Eastern, extended hours)")
-            
+
             bars = ib.reqHistoricalData(
                 contract,
                 endDateTime=end_time_str,
@@ -227,7 +227,7 @@ class StockScreenerApp:
                 useRTH=False,
                 formatDate=1
             )
-            
+
             if not bars:
                 logger.warning(f"No data returned for {ticker}")
                 return pd.DataFrame()
@@ -404,7 +404,7 @@ class StockScreenerApp:
             for serial, ticker_no, ticker, open_val in sorted(self.results, key=lambda x: x[0]):
                 f.write(f"{serial}\t{ticker_no}\t{ticker}\t{open_val}\n")
         logger.info("Results saved to screener_results.txt")
-    
+
     def run_screener(self):
         self.tree.delete(*self.tree.get_children())
         try:
@@ -452,7 +452,7 @@ class StockScreenerApp:
         self.save_results()
         messagebox.showinfo("Success", f"Found {len(self.results)} matches.\nResults saved to screener_results.txt")
         logger.info(f"Screener finished with {len(self.results)} matches.")
-    
+
     def reset(self):
         self.date_entry.delete(0, tk.END)
         self.date_entry.insert(0, self.get_default_date().strftime("%Y-%m-%d"))
