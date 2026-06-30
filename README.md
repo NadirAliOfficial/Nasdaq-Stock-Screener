@@ -21,5 +21,3 @@ python screener.py
 ## License
 MIT
 <!-- updated: 2025-12-04-r01 -->
-
-
